@@ -24,7 +24,7 @@ namespace Socks5.Core.ExamplePlugins;
 
 internal class ClientConnectHandlerExample : ClientConnectedHandler
 {
-    public override bool Enabled { get; set; } = false;
+    public override bool Enabled { get; set; } = true;
 
     public override bool OnStart()
     {

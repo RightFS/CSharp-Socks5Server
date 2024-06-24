@@ -27,9 +27,10 @@ public abstract class ClientConnectedHandler : IGenericPlugin
     public abstract bool Enabled { get; set; }
 
     /// <summary>
-    ///     Handle client connected callback. Useful for IPblocking.
+    ///     Handle client connected callback. Useful for IP blocking.
     /// </summary>
     /// <param name="client"></param>
+    /// <param name="ip"></param>
     /// <returns>Return true to allow the connection, return false to deny it.</returns>
     public abstract bool OnConnect(Client client, IPEndPoint ip);
 }

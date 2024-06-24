@@ -43,16 +43,16 @@ public class SocksClient
         var authtypes = Socks5.RequestAuth(this);
         if (authtypes.Count <= 0)
         {
-            Client.Send(new byte[] { 0x00, 0xFF });
+            Client.Send([0x00, 0xFF]);
             Client.Disconnect();
             return;
         }
 
         Authenticated = 0;
         SocksEncryption socksEncryption = new SocksEncryption();
-        var lhandlers = PluginLoader.LoadPlugin(typeof(LoginHandler));
+        var loginHandlers = PluginLoader.LoadPlugin(typeof(LoginHandler));
         //check out different auth types, none will have no authentication, the rest do.
-        if (lhandlers.Count > 0 &&
+        if (loginHandlers.Count > 0 &&
             (authtypes.Contains(AuthTypes.SocksBoth)     ||
              authtypes.Contains(AuthTypes.SocksEncrypt)  ||
              authtypes.Contains(AuthTypes.SocksCompress) ||
@@ -60,7 +60,7 @@ public class SocksClient
         {
             //this is the preferred method.
             socksEncryption = Socks5.RequestSpecialMode(authtypes, Client);
-            foreach (LoginHandler lh in lhandlers)
+            foreach (LoginHandler lh in loginHandlers)
             {
                 //request login.
                 var user = Socks5.RequestLogin(this);
@@ -88,7 +88,7 @@ public class SocksClient
         else if (authtypes.Contains(AuthTypes.None))
         {
             //no authentication.
-            if (lhandlers.Count <= 0)
+            if (loginHandlers.Count <= 0)
             {
                 //unsupported methods y0
                 Authenticated = 1;

@@ -29,8 +29,16 @@ internal class Socks5
     {
         byte[] buff;
         var recv = Receive(client.Client, out buff);
+        if (recv < 3)
+        {
+            return new List<AuthTypes>();
+        }
 
-        if ((HeaderTypes)buff[0] != HeaderTypes.Socks5)
+        // VERSION	METHODS_COUNT	METHODS…
+        // 1字节	    1字节	        1到255字节，长度由METHODS_COUNT值决定
+        // 0x05	    0x03	        0x03 0x00 0x01 0x02
+        //
+        if ((HeaderTypes) buff[0] != HeaderTypes.Socks5)
         {
             return new List<AuthTypes>();
         }
@@ -39,7 +47,7 @@ internal class Socks5
         var types = new List<AuthTypes>();
         for (var i = 2; i < methods + 2; i++)
         {
-            switch ((AuthTypes)buff[i])
+            switch ((AuthTypes) buff[i])
             {
                 case AuthTypes.Login:
                     types.Add(AuthTypes.Login);
@@ -68,7 +76,7 @@ internal class Socks5
         if (auth.Contains(AuthTypes.SocksBoth))
         {
             //tell client that we chose socksboth.
-            client.Send(new[] { (byte)HeaderTypes.Socks5, (byte)AuthTypes.SocksBoth });
+            client.Send(new[] {(byte) HeaderTypes.Socks5, (byte) AuthTypes.SocksBoth});
             //wait for public key.
             var ph = new SocksEncryption();
             ph.GenerateKeys();
@@ -96,7 +104,7 @@ internal class Socks5
         if (auth.Contains(AuthTypes.SocksEncrypt))
         {
             //tell client that we chose socksboth.
-            client.Send(new[] { (byte)HeaderTypes.Socks5, (byte)AuthTypes.SocksEncrypt });
+            client.Send(new[] {(byte) HeaderTypes.Socks5, (byte) AuthTypes.SocksEncrypt});
             //wait for public key.
             var ph = new SocksEncryption();
             ph.GenerateKeys();
@@ -123,7 +131,7 @@ internal class Socks5
         if (auth.Contains(AuthTypes.SocksCompress))
         {
             //start compression.
-            client.Send(new[] { (byte)HeaderTypes.Socks5, (byte)AuthTypes.SocksCompress });
+            client.Send(new[] {(byte) HeaderTypes.Socks5, (byte) AuthTypes.SocksCompress});
             var ph = new SocksEncryption();
             ph.SetType(AuthTypes.SocksCompress);
             //ready
@@ -141,10 +149,15 @@ internal class Socks5
     public static User? RequestLogin(SocksClient client)
     {
         //request authentication.
-        client.Client.Send(new[] { (byte)HeaderTypes.Socks5, (byte)AuthTypes.Login });
+        client.Client.Send(new[] {(byte) HeaderTypes.Socks5, (byte) AuthTypes.Login});
         byte[]? buff;
         var recv = Receive(client.Client, out buff);
-
+        //VERSION   USERNAME_LENGTH USERNAME    PASSWORD_LENGTH PASSWORD
+        // 1字节	    1字节	        1到255字节	1字节	        1到255字节
+#if DEBUG
+        Console.WriteLine("\nReceived Client Auth {0} Bytes ", recv);
+        Console.WriteLine("Client Auth VERSION {0:X} ", buff[0]);
+#endif
         if (buff[0] != 0x01) return null;
 
         var numusername = Convert.ToInt32(buff[1]);
@@ -154,22 +167,23 @@ internal class Socks5
 
         ArgumentNullException.ThrowIfNull(client.Client.Sock.RemoteEndPoint);
 
-        return new User(buff[0], username, password, (IPEndPoint)client.Client.Sock.RemoteEndPoint);
+        return new User(buff[0], username, password, (IPEndPoint) client.Client.Sock.RemoteEndPoint);
     }
 
     public static SocksRequest? RequestTunnel(SocksClient client, SocksEncryption ph)
     {
         byte[] data;
         var recv = Receive(client.Client, out data);
+        
         var buff = ph.ProcessInputData(data, 0, recv);
-        if (buff == null || (HeaderTypes)buff[0] != HeaderTypes.Socks5) return null;
-        switch ((StreamTypes)buff[1])
+        if (buff == null || (HeaderTypes) buff[0] != HeaderTypes.Socks5) return null;
+        switch ((StreamTypes) buff[1])
         {
             case StreamTypes.Stream:
             {
                 var fwd = 4;
                 var address = "";
-                switch ((AddressType)buff[3])
+                switch ((AddressType) buff[3])
                 {
                     case AddressType.Ip:
                     {
@@ -189,22 +203,28 @@ internal class Socks5
                     case AddressType.Pv6:
                         //can't handle IPV6 traffic just yet.
                         return null;
+                    default:
+#if DEBUG
+                        Console.WriteLine("Unsupported Address Type.");
+#endif
+                        return null;
                 }
-
                 var po = new byte[2];
                 Array.Copy(buff, fwd, po, 0, 2);
-                var port = BitConverter.ToUInt16(new[] { po[1], po[0] }, 0);
-                return new SocksRequest(StreamTypes.Stream, (AddressType)buff[3], address, port);
+                var port = BitConverter.ToUInt16(new[] {po[1], po[0]}, 0);
+                return new SocksRequest(StreamTypes.Stream, (AddressType) buff[3], address, port);
             }
+            case StreamTypes.Bind:
+            case StreamTypes.Udp:
             default:
                 //not supported.
                 return null;
         }
     }
 
-    public static int Receive(Client client, out byte[] buffer)
+    private static int Receive(Client client, out byte[] buffer)
     {
-        buffer = new byte[65535];
+        buffer = new byte[4096];
         return client.Receive(buffer, 0, buffer.Length);
     }
 }

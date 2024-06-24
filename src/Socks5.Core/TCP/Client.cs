@@ -115,9 +115,7 @@ public class Client
         catch (Exception ex)
         {
 #if DEBUG
-#if DEBUG
             Console.WriteLine(ex.ToString());
-#endif
 #endif
             Disconnect();
         }
@@ -184,21 +182,19 @@ public class Client
         try
         {
             //while (Receiving) Thread.Sleep(10);
-            if (!_disposed)
+            if (_disposed) return;
+            if (Sock != null && Sock.Connected)
             {
-                if (Sock != null && Sock.Connected)
-                {
-                    OnClientDisconnected(this, new ClientEventArgs(this));
-                    Sock.Shutdown(SocketShutdown.Both);
-                    Sock.Close();
-                    //this.Sock = null;
-                    return;
-                }
-
                 OnClientDisconnected(this, new ClientEventArgs(this));
-
-                Dispose();
+                Sock.Shutdown(SocketShutdown.Both);
+                Sock.Close();
+                //this.Sock = null;
+                return;
             }
+
+            OnClientDisconnected(this, new ClientEventArgs(this));
+
+            Dispose();
         }
         catch
         {

@@ -26,7 +26,11 @@ public static class PluginLoader
 
     private static readonly List<Type> _pluginTypes = new()
     {
-        typeof(LoginHandler), typeof(DataHandler), typeof(ConnectHandler), typeof(ClientConnectedHandler),
+        typeof(LoginHandler), 
+        typeof(DataHandler), 
+        typeof(ConnectHandler), 
+        typeof(ClientConnectedHandler),
+        typeof(ClientDisconnectedHandler),
         typeof(ConnectSocketOverrideHandler)
     };
 
@@ -69,7 +73,7 @@ public static class PluginLoader
 
             try
             {
-                foreach (var f in Assembly.GetEntryAssembly()?.GetTypes() ?? Array.Empty<Type>()) 
+                foreach (var f in Assembly.GetEntryAssembly()?.GetTypes() ?? []) 
                 {
                     try
                     {
@@ -172,12 +176,14 @@ public static class PluginLoader
         return _pluginTypes.All(x => !x.IsAssignableFrom(p) || p == x);
     }
 
-    public static List<object> LoadPlugin(Type assemblyType)
+    public static List<IGenericPlugin> LoadPlugin(Type assemblyType)
     {
         //make sure plugins are loaded.
-        var list = new List<object>();
-        foreach (var x in from x in GetPlugins where assemblyType.IsInstanceOfType(x) where ((IGenericPlugin)x).OnStart() where ((IGenericPlugin)x).Enabled select x)
-            list.Push(x);
+        var list = GetPlugins
+            .Where(assemblyType.IsInstanceOfType)
+            .OfType<IGenericPlugin>()
+            .Where(x => x.OnStart() && x.Enabled)
+            .ToList();
         return list;
     }
 

@@ -18,12 +18,7 @@
 
 namespace Socks5.Core.TCP;
 
-public class ClientEventArgs : EventArgs
+public class ClientEventArgs(Client client) : EventArgs
 {
-    public ClientEventArgs(Client client)
-    {
-        Client = client;
-    }
-
-    public Client Client { get; private set; }
+    public Client Client { get; private set; } = client;
 }

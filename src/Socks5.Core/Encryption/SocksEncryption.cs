@@ -105,6 +105,9 @@ public class SocksEncryption
                     return _dcc.DecompressBytes(buff);
                 case AuthTypes.SocksEncrypt:
                     return _dcc.DecryptBytes(buff);
+                case AuthTypes.Login:
+                case AuthTypes.Unsupported:
+                case AuthTypes.None:
                 default:
                     return buffer;
             }

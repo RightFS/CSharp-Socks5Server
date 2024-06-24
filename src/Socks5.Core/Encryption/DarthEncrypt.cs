@@ -45,12 +45,12 @@ public class DarthEncrypt
     public DarthEncrypt()
     {
         InitializeComponent();
-        if (PassPhrase == null) PassPhrase = "Z29sZGZpc2ggYm93bA==";
-        if (SaltValue  == null) SaltValue = "ZGlhbW9uZCByaW5n";
+        PassPhrase ??= "Z29sZGZpc2ggYm93bA==";
+        SaltValue ??= "ZGlhbW9uZCByaW5n";
         HashType = DcHashTypes.Sha1;
-        if (_fileDecryptExtension == null) _fileDecryptExtension = "dec";
-        if (_fileEncryptExtension == null) _fileEncryptExtension = "enc";
-        if (_initVector           == null) _initVector = "@1B2c3D4e5F6g7H8";
+        _fileDecryptExtension ??= "dec";
+        _fileEncryptExtension ??= "enc";
+        _initVector ??= "@1B2c3D4e5F6g7H8";
         _passPhraseStrength = 2;
     }
 
@@ -159,35 +159,29 @@ public class DarthEncrypt
 
     public byte[] CompressBytes(byte[] bytes, int offset, int count)
     {
-        using (var memory = new MemoryStream())
+        using var memory = new MemoryStream();
+        using (var gzip = new GZipStream(memory, CompressionMode.Compress, true))
         {
-            using (var gzip = new GZipStream(memory, CompressionMode.Compress, true))
-            {
-                gzip.Write(bytes, offset, count);
-            }
-
-            return memory.ToArray();
+            gzip.Write(bytes, offset, count);
         }
+
+        return memory.ToArray();
     }
 
     public byte[] DecompressBytes(byte[] compressed)
     {
         byte[] buffer2;
-        using (var stream = new GZipStream(new MemoryStream(compressed), CompressionMode.Decompress))
+        using var stream = new GZipStream(new MemoryStream(compressed), CompressionMode.Decompress);
+        var buffer = new byte[0x1000];
+        using var stream2 = new MemoryStream();
+        var count = 0;
+        do
         {
-            var buffer = new byte[0x1000];
-            using (var stream2 = new MemoryStream())
-            {
-                var count = 0;
-                do
-                {
-                    count = stream.Read(buffer, 0, 0x1000);
-                    if (count > 0) stream2.Write(buffer, 0, count);
-                } while (count > 0);
+            count = stream.Read(buffer, 0, 0x1000);
+            if (count > 0) stream2.Write(buffer, 0, count);
+        } while (count > 0);
 
-                buffer2 = stream2.ToArray();
-            }
-        }
+        buffer2 = stream2.ToArray();
 
         return buffer2;
     }
@@ -205,9 +199,7 @@ public class DarthEncrypt
         if (HashType == DcHashTypes.Sha384) strHashName = "SHA384";
         if (HashType == DcHashTypes.Sha512) strHashName = "SHA512";
         var rgbKey = new PasswordDeriveBytes(PassPhrase, rgbSalt, strHashName, PassPhraseStrength).GetBytes(num / 8);
-        var managed = new RijndaelManaged();
-        managed.Mode = CipherMode.CBC;
-        managed.Padding = PaddingMode.Zeros;
+        var managed = Aes.Create();
         var transform = managed.CreateDecryptor(rgbKey, bytes);
         var stream = new MemoryStream(buffer);
         var stream2 = new CryptoStream(stream, transform, CryptoStreamMode.Read);
@@ -237,8 +229,7 @@ public class DarthEncrypt
         if (HashType == DcHashTypes.Sha384) strHashName = "SHA384";
         if (HashType == DcHashTypes.Sha512) strHashName = "SHA512";
         var rgbKey = new PasswordDeriveBytes(PassPhrase, rgbSalt, strHashName, PassPhraseStrength).GetBytes(num / 8);
-        var managed = new RijndaelManaged();
-        managed.Mode = CipherMode.CBC;
+        var managed = Aes.Create();
         var transform = managed.CreateDecryptor(rgbKey, bytes);
         var stream = new MemoryStream(buffer);
         var stream2 = new CryptoStream(stream, transform, CryptoStreamMode.Read);
@@ -263,8 +254,7 @@ public class DarthEncrypt
         if (HashType == DcHashTypes.Sha384) strHashName = "SHA384";
         if (HashType == DcHashTypes.Sha512) strHashName = "SHA512";
         var rgbKey = new PasswordDeriveBytes(PassPhrase, rgbSalt, strHashName, PassPhraseStrength).GetBytes(num / 8);
-        var managed = new RijndaelManaged();
-        managed.Mode = CipherMode.CBC;
+        var managed = Aes.Create();
         if (aType == TransformType.Encrypt)
             transform = managed.CreateEncryptor(rgbKey, bytes);
         else
@@ -273,9 +263,9 @@ public class DarthEncrypt
         if (newFileName == null)
         {
             if (aType == TransformType.Encrypt)
-                path = inFile.Substring(0, inFile.LastIndexOf(".")) + "." + FileEncryptExtension;
+                path = inFile.Substring(0, inFile.LastIndexOf('.')) + '.' + FileEncryptExtension;
             else
-                path = inFile.Substring(0, inFile.LastIndexOf(".")) + "." + FileDecryptExtension;
+                path = inFile.Substring(0, inFile.LastIndexOf('.')) + '.' + FileDecryptExtension;
         }
 
         if (newFileName != null)
@@ -289,7 +279,7 @@ public class DarthEncrypt
             {
                 var info3 = new FileInfo(inFile);
                 path = info3.DirectoryName + "\\" + newFileName;
-                if (path.LastIndexOf(".") < 1)
+                if (path.LastIndexOf('.') < 1)
                 {
                     if (aType == TransformType.Encrypt)
                         path = path + "." + FileEncryptExtension;
@@ -300,30 +290,28 @@ public class DarthEncrypt
         }
 
         var stream = new FileStream(path, FileMode.Create);
-        using (var stream2 = new CryptoStream(stream, transform, CryptoStreamMode.Write))
+        using var stream2 = new CryptoStream(stream, transform, CryptoStreamMode.Write);
+        var count = 0;
+        var num3 = 0;
+        var num4 = managed.BlockSize / 8;
+        var buffer = new byte[num4];
+        var num5 = 0;
+        using (var stream3 = new FileStream(inFile, FileMode.Open))
         {
-            var count = 0;
-            var num3 = 0;
-            var num4 = managed.BlockSize / 8;
-            var buffer = new byte[num4];
-            var num5 = 0;
-            using (var stream3 = new FileStream(inFile, FileMode.Open))
+            do
             {
-                do
-                {
-                    count = stream3.Read(buffer, 0, num4);
-                    num3 = num3 + count;
-                    stream2.Write(buffer, 0, count);
-                    num5 = num5 + num4;
-                } while (count > 0);
+                count = stream3.Read(buffer, 0, num4);
+                num3 = num3 + count;
+                stream2.Write(buffer, 0, count);
+                num5 = num5 + num4;
+            } while (count > 0);
 
-                stream2.FlushFinalBlock();
-                stream2.Close();
-                stream3.Close();
-            }
-
-            stream.Close();
+            stream2.FlushFinalBlock();
+            stream2.Close();
+            stream3.Close();
         }
+
+        stream.Close();
     }
 
     /// <summary>
@@ -372,7 +360,7 @@ public class DarthEncrypt
         if (HashType == DcHashTypes.Sha384) strHashName = "SHA384";
         if (HashType == DcHashTypes.Sha512) strHashName = "SHA512";
         var rgbKey = new PasswordDeriveBytes(PassPhrase, rgbSalt, strHashName, PassPhraseStrength).GetBytes(num / 8);
-        var managed = new RijndaelManaged();
+        var managed = Aes.Create();
         managed.Mode = CipherMode.CBC;
         managed.Padding = PaddingMode.Zeros;
         var transform = managed.CreateEncryptor(rgbKey, bytes);
@@ -406,8 +394,7 @@ public class DarthEncrypt
         if (HashType == DcHashTypes.Sha384) strHashName = "SHA384";
         if (HashType == DcHashTypes.Sha512) strHashName = "SHA512";
         var rgbKey = new PasswordDeriveBytes(PassPhrase, rgbSalt, strHashName, PassPhraseStrength).GetBytes(num / 8);
-        var managed = new RijndaelManaged();
-        managed.Mode = CipherMode.CBC;
+        var managed = Aes.Create();
         var transform = managed.CreateEncryptor(rgbKey, bytes);
         var stream = new MemoryStream();
         var stream2 = new CryptoStream(stream, transform, CryptoStreamMode.Write);
